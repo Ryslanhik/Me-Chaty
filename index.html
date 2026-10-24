@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Me Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@600&display=swap" rel="stylesheet">
+<style>
+/* Layout: список чатов слева, переписка справа; на телефоне это два экрана. */
+:root {
+  --bg: #eef1f6;
+  --panel: #ffffff;
+  --panel-2: #f5f7fb;
+  --ink: #1b2340;
+  --muted: #667090;
+  --line: #dde2ee;
+  --accent: #d93a17;
+  --accent-ink: #ffffff;
+  --mine: #d93a17;
+  --mine-ink: #ffffff;
+  --theirs: #ffffff;
+  --theirs-ink: #1b2340;
+  --ok: #1f9d63;
+  --warn: #b7791f;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Unbounded", "Onest", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1220; --panel: #161b2e; --panel-2: #1c2238; --ink: #e8ebf6; --muted: #8e97b8;
+    --line: #262d48; --accent: #ff6a45; --accent-ink: #1a0c07; --mine: #ff6a45; --mine-ink: #1a0c07;
+    --theirs: #1f263e; --theirs-ink: #e8ebf6; --ok: #43c68a; --warn: #e3b04b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1220; --panel: #161b2e; --panel-2: #1c2238; --ink: #e8ebf6; --muted: #8e97b8;
+  --line: #262d48; --accent: #ff6a45; --accent-ink: #1a0c07; --mine: #ff6a45; --mine-ink: #1a0c07;
+  --theirs: #1f263e; --theirs-ink: #e8ebf6; --ok: #43c68a; --warn: #e3b04b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-columns: 330px minmax(0, 1fr); max-width: 1200px; margin: 0 auto; background: var(--panel); }
+.side { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--line); background: var(--panel); }
+.main { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg); }
+
+.brand { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; padding-top: max(16px, env(safe-area-inset-top, 0px)); }
+.logo { font-family: var(--font-display); font-size: 18px; letter-spacing: -0.01em; }
+.logo b { color: var(--accent); font-weight: 600; }
+.spacer { flex: 1; }
+.icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); display: grid; place-items: center; }
+.icon-btn:hover { border-color: var(--accent); }
+.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.status { margin: 0 16px 10px; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; background: var(--panel-2); color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.status[data-mode="live"] .dot { background: var(--ok); }
+
+.new-room { display: flex; gap: 8px; padding: 0 16px 12px; }
+.new-room input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); }
+.new-room button { padding: 0 14px; border-radius: 10px; border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.rooms { list-style: none; margin: 0; padding: 0 8px 12px; overflow-y: auto; flex: 1; min-height: 0; }
+.room { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; border: 0; background: transparent; padding: 10px 8px; border-radius: 12px; }
+.room:hover { background: var(--panel-2); }
+.room[aria-current="true"] { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+.avatar { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-weight: 600; color: #fff; flex: none; font-size: 16px; }
+.room-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-sub { font-size: 12.5px; color: var(--muted); }
+.room > div { min-width: 0; }
+
+.me { display: flex; align-items: center; gap: 10px; padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+.me .avatar { width: 34px; height: 34px; border-radius: 11px; font-size: 14px; }
+.me-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.link-btn { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 4px; font-size: 13px; }
+
+.head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top, 0px)); background: var(--panel); border-bottom: 1px solid var(--line); }
+.head h1 { font-size: 16px; margin: 0; line-height: 1.2; }
+.head small { color: var(--muted); }
+.back { display: none; }
+
+.feed { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.day { align-self: center; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 2px 10px; border-radius: 999px; margin: 10px 0; }
+.msg { max-width: min(560px, 82%); display: flex; flex-direction: column; gap: 2px; }
+.msg.mine { align-self: flex-end; align-items: flex-end; }
+.msg .who { font-size: 12px; font-weight: 600; margin: 8px 6px 0; }
+.bubble { background: var(--theirs); color: var(--theirs-ink); padding: 8px 12px; border-radius: 16px 16px 16px 4px; border: 1px solid var(--line); overflow-wrap: anywhere; white-space: pre-wrap; }
+.mine .bubble { background: var(--mine); color: var(--mine-ink); border-color: transparent; border-radius: 16px 16px 4px 16px; }
+.time { font-size: 11px; color: var(--muted); margin: 0 6px; font-variant-numeric: tabular-nums; }
+.empty { margin: auto; text-align: center; color: var(--muted); max-width: 260px; }
+
+.composer { display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line); }
+.composer textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); font: inherit; color: inherit; line-height: 1.4; }
+.send { width: 44px; height: 44px; border-radius: 14px; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.send:disabled { opacity: .45; cursor: default; }
+.send svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--ink); padding: 24px; width: min(380px, calc(100% - 32px)); }
+dialog::backdrop { background: rgba(8, 11, 22, .6); }
+dialog h2 { font-family: var(--font-display); font-size: 18px; margin: 0 0 6px; }
+dialog p { color: var(--muted); margin: 0 0 16px; }
+dialog input { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); margin-bottom: 14px; }
+dialog button.primary { width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .main { display: none; }
+  .app[data-view="chat"] .side { display: none; }
+  .app[data-view="chat"] .main { display: flex; }
+  .back { display: grid; }
+  .msg { max-width: 88%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .msg { animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-view="list">
+  <aside class="side">
+    <div class="brand">
+      <span class="logo">Me<b>Chat</b></span>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Сменить тему">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+    <div class="status" id="status" data-mode="demo"><span class="dot"></span><span id="statusText">Подключение…</span></div>
+    <form class="new-room" id="roomForm">
+      <input id="roomName" type="text" placeholder="Новый чат" maxlength="40" autocomplete="off" aria-label="Название нового чата">
+      <button type="submit">Создать</button>
+    </form>
+    <ul class="rooms" id="rooms"></ul>
+    <div class="me">
+      <div class="avatar" id="meAvatar"></div>
+      <div class="me-name" id="meName"></div>
+      <button class="link-btn" id="renameBtn" type="button">Сменить имя</button>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="head">
+      <button class="icon-btn back" id="backBtn" type="button" aria-label="К списку чатов">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div>
+        <h1 id="roomTitle">Выберите чат</h1>
+        <small id="roomSub"></small>
+      </div>
+    </header>
+    <div class="feed" id="feed" role="log" aria-live="polite"></div>
+    <form class="composer" id="composer">
+      <textarea id="text" rows="1" maxlength="2000" placeholder="Сообщение" aria-label="Сообщение"></textarea>
+      <button class="send" id="sendBtn" type="submit" aria-label="Отправить" disabled>
+        <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+      </button>
+    </form>
+  </section>
+</div>
+
+<dialog id="nameDialog">
+  <form method="dialog" id="nameForm">
+    <h2>Как вас зовут?</h2>
+    <p>Это имя увидят другие участники чата.</p>
+    <input id="nameInput" type="text" maxlength="24" placeholder="Ваше имя" autocomplete="nickname" required>
+    <button class="primary" type="submit">Войти в Me Chat</button>
+  </form>
+</dialog>
+
+<script type="module">
+/* ============================ Firebase ============================
+   projectId уже указан. Остальные значения возьмите в консоли Firebase:
+   Project settings → General → Your apps → Web app → SDK setup and configuration.
+   Пока apiKey не заполнен, чат работает в демо-режиме (данные хранятся в браузере). */
+const firebaseConfig = {
+  apiKey: "AIzaSyCCRTVWqrf8_9JMddoMihw2fgx-D5h16ms",
+  authDomain: "me-chat-1c2d1.firebaseapp.com",
+  projectId: "me-chat-1c2d1",
+  storageBucket: "me-chat-1c2d1.firebasestorage.app",
+  messagingSenderId: "540672529326",
+  appId: "1:540672529326:web:84b041581167ddd58bee3f"
+};
+const FB_VERSION = "10.12.2";
+const configured = !String(firebaseConfig.apiKey).startsWith("PASTE");
+
+/* ============================ Утилиты ============================ */
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+const COLORS = ["#5b6cff", "#0f9d8a", "#c2410c", "#a21caf", "#0e7490", "#b45309", "#be185d", "#4d7c0f"];
+const colorFor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
+const initial = (s) => (String(s).trim()[0] || "?").toUpperCase();
+const hhmm = (ms) => new Date(ms).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const dayLabel = (ms) => {
+  const d = new Date(ms), n = new Date();
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  const y = new Date(n); y.setDate(n.getDate() - 1);
+  if (same(d, n)) return "Сегодня";
+  if (same(d, y)) return "Вчера";
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+};
+const slug = (s) => s.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 30) || "chat";
+
+/* ============================ Демо-бэкенд ============================ */
+function createDemoBackend() {
+  const KEY = "mechat-demo-v1";
+  const bc = "BroadcastChannel" in window ? new BroadcastChannel("mechat-demo") : null;
+  const subs = new Set();
+  let uid = store.get("mechat-uid");
+  if (!uid) { uid = "u" + Math.random().toString(36).slice(2, 10); store.set("mechat-uid", uid); }
+  const load = () => {
+    try { const d = JSON.parse(store.get(KEY)); if (d && d.rooms) return d; } catch {}
+    const now = Date.now();
+    const d = {
+      rooms: [{ id: "general", name: "Общий чат", createdAt: now - 3600e3 }, { id: "ideas", name: "Идеи", createdAt: now - 1800e3 }],
+      messages: {
+        general: [{ id: "m1", uid: "bot", name: "Me Chat", text: "Добро пожаловать! Откройте приложение во второй вкладке, чтобы увидеть обмен сообщениями.", createdAt: now - 3000e3 }],
+        ideas: []
+      }
+    };
+    store.set(KEY, JSON.stringify(d));
+    return d;
+  };
+  const save = (d) => { store.set(KEY, JSON.stringify(d)); bc && bc.postMessage("change"); notify(); };
+  const notify = () => subs.forEach((f) => f());
+  bc && (bc.onmessage = notify);
+  window.addEventListener("storage", (e) => { if (e.key === KEY) notify(); });
+  return {
+    mode: "demo", uid,
+    async init() {},
+    onRooms(cb) { const f = () => cb(load().rooms.slice().sort((a, b) => a.createdAt - b.createdAt)); subs.add(f); f(); return () => subs.delete(f); },
+    onMessages(roomId, cb) { const f = () => cb((load().messages[roomId] || []).slice(-200)); subs.add(f); f(); return () => subs.delete(f); },
+    async createRoom(name) {
+      const d = load(); let id = slug(name); while (d.rooms.some((r) => r.id === id)) id += "-" + Math.floor(Math.random() * 99);
+      d.rooms.push({ id, name, createdAt: Date.now() }); d.messages[id] = []; save(d); return id;
+    },
+    async send(roomId, name, text) {
+      const d = load(); (d.messages[roomId] = d.messages[roomId] || []).push({ id: "m" + Date.now() + Math.random().toString(36).slice(2, 5), uid, name, text, createdAt: Date.now() }); save(d);
+    }
+  };
+}
+
+/* ============================ Firebase-бэкенд ============================ */
+async function createFirebaseBackend() {
+  const base = `https://www.gstatic.com/firebasejs/${FB_VERSION}`;
+  const [{ initializeApp }, A, F] = await Promise.all([
+    import(`${base}/firebase-app.js`), import(`${base}/firebase-auth.js`), import(`${base}/firebase-firestore.js`)
+  ]);
+  const app = initializeApp(firebaseConfig);
+  const auth = A.getAuth(app);
+  const db = F.getFirestore(app);
+  const ms = (t) => (t && t.toMillis ? t.toMillis() : Date.now());
+  return {
+    mode: "live", uid: null,
+    async init() { const cred = await A.signInAnonymously(auth); this.uid = cred.user.uid; },
+    onRooms(cb) {
+      const q = F.query(F.collection(db, "rooms"), F.orderBy("createdAt", "asc"));
+      return F.onSnapshot(q, (s) => cb(s.docs.map((d) => ({ id: d.id, name: d.data().name, createdAt: ms(d.data().createdAt) }))), (e) => fail(e));
+    },
+    onMessages(roomId, cb) {
+      const q = F.query(F.collection(db, "rooms", roomId, "messages"), F.orderBy("createdAt", "asc"), F.limitToLast(200));
+      return F.onSnapshot(q, { includeMetadataChanges: false }, (s) => cb(s.docs.map((d) => { const x = d.data(); return { id: d.id, uid: x.uid, name: x.name, text: x.text, createdAt: ms(x.createdAt) }; })), (e) => fail(e));
+    },
+    async createRoom(name) {
+      const id = slug(name) + "-" + Math.random().toString(36).slice(2, 5);
+      await F.setDoc(F.doc(db, "rooms", id), { name, createdAt: F.serverTimestamp(), createdBy: this.uid });
+      return id;
+    },
+    async send(roomId, name, text) {
+      await F.addDoc(F.collection(db, "rooms", roomId, "messages"), { uid: this.uid, name, text, createdAt: F.serverTimestamp() });
+    },
+    async ensureDefaultRoom() {
+      const ref = F.doc(db, "rooms", "general");
+      try { const snap = await F.getDoc(ref); if (!snap.exists()) await F.setDoc(ref, { name: "Общий чат", createdAt: F.serverTimestamp(), createdBy: this.uid }); } catch (e) { /* правила могут запретить */ }
+    }
+  };
+}
+
+/* ============================ Состояние и UI ============================ */
+let backend, myName = store.get("mechat-name") || "", currentRoom = null, offRooms = null, offMsgs = null, rooms = [];
+const setStatus = (mode, text) => { const s = $("status"); s.dataset.mode = mode; $("statusText").textContent = text; };
+function fail(e) {
+  console.error(e);
+  const code = e && e.code ? e.code : "";
+  setStatus("demo", code === "permission-denied" ? "Нет доступа: проверьте правила Firestore" : "Ошибка Firebase: " + (code || e.message));
+}
+
+function renderMe() { $("meName").textContent = myName; const a = $("meAvatar"); a.textContent = initial(myName); a.style.background = colorFor(backend ? backend.uid : myName); }
+
+function renderRooms() {
+  const ul = $("rooms"); ul.innerHTML = "";
+  for (const r of rooms) {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "room"; b.setAttribute("aria-current", String(r.id === currentRoom));
+    b.innerHTML = '<div class="avatar"></div><div><div class="room-name"></div><div class="room-sub">Открытый чат</div></div>';
+    const av = b.querySelector(".avatar"); av.textContent = initial(r.name); av.style.background = colorFor(r.id);
+    b.querySelector(".room-name").textContent = r.name;
+    b.onclick = () => openRoom(r.id);
+    li.appendChild(b); ul.appendChild(li);
+  }
+}
+
+function renderMessages(list) {
+  const feed = $("feed");
+  const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+  feed.innerHTML = "";
+  if (!list.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = "Здесь пока тихо. Напишите первое сообщение."; feed.appendChild(e); return; }
+  let lastDay = "", lastUid = "";
+  for (const m of list) {
+    const dl = dayLabel(m.createdAt);
+    if (dl !== lastDay) { const d = document.createElement("div"); d.className = "day"; d.textContent = dl; feed.appendChild(d); lastDay = dl; lastUid = ""; }
+    const mine = m.uid === backend.uid;
+    const wrap = document.createElement("div"); wrap.className = "msg" + (mine ? " mine" : "");
+    if (!mine && m.uid !== lastUid) { const w = document.createElement("div"); w.className = "who"; w.textContent = m.name; w.style.color = colorFor(m.uid); wrap.appendChild(w); }
+    const b = document.createElement("div"); b.className = "bubble"; b.textContent = m.text; wrap.appendChild(b);
+    const t = document.createElement("div"); t.className = "time"; t.textContent = hhmm(m.createdAt); wrap.appendChild(t);
+    feed.appendChild(wrap); lastUid = m.uid;
+  }
+  if (nearBottom || list[list.length - 1].uid === backend.uid) feed.scrollTop = feed.scrollHeight;
+}
+
+function openRoom(id) {
+  currentRoom = id;
+  const r = rooms.find((x) => x.id === id);
+  $("roomTitle").textContent = r ? r.name : id;
+  $("roomSub").textContent = backend.mode === "live" ? "Обновляется в реальном времени" : "Демо-режим";
+  $("app").dataset.view = "chat";
+  renderRooms();
+  offMsgs && offMsgs();
+  $("feed").innerHTML = "";
+  offMsgs = backend.onMessages(id, renderMessages);
+  syncSend();
+}
+
+const syncSend = () => { $("sendBtn").disabled = !currentRoom || !$("text").value.trim(); };
+const autosize = () => { const t = $("text"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 140) + "px"; };
+
+async function sendCurrent() {
+  const t = $("text"), text = t.value.trim();
+  if (!text || !currentRoom) return;
+  t.value = ""; autosize(); syncSend();
+  try { await backend.send(currentRoom, myName, text); } catch (e) { fail(e); t.value = text; syncSend(); }
+}
+
+$("composer").addEventListener("submit", (e) => { e.preventDefault(); sendCurrent(); });
+$("text").addEventListener("input", () => { autosize(); syncSend(); });
+$("text").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendCurrent(); } });
+$("backBtn").onclick = () => { $("app").dataset.view = "list"; };
+$("roomForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("roomName").value.trim(); if (!name) return;
+  $("roomName").value = "";
+  try { const id = await backend.createRoom(name); openRoom(id); } catch (err) { fail(err); }
+});
+
+const nameDialog = $("nameDialog");
+function askName() { $("nameInput").value = myName; nameDialog.showModal(); $("nameInput").focus(); }
+$("nameForm").addEventListener("submit", () => {
+  const v = $("nameInput").value.trim().slice(0, 24); if (!v) return;
+  myName = v; store.set("mechat-name", v); renderMe();
+});
+$("renameBtn").onclick = askName;
+
+$("themeBtn").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next; store.set("mechat-theme", next);
+};
+{ const t = store.get("mechat-theme"); if (t) document.documentElement.dataset.theme = t; }
+
+/* ============================ Запуск ============================ */
+(async function start() {
+  if (configured) {
+    try { backend = await createFirebaseBackend(); await backend.init(); setStatus("live", "Firebase · me-chat-1c2d1"); }
+    catch (e) { console.error(e); backend = createDemoBackend(); setStatus("demo", "Firebase недоступен, включён демо-режим"); }
+  } else {
+    backend = createDemoBackend();
+    setStatus("demo", "Демо-режим: добавьте ключи Firebase в index.html");
+  }
+  if (backend.mode === "live") await backend.ensureDefaultRoom();
+  if (!myName) askName();
+  renderMe();
+  offRooms = backend.onRooms((list) => {
+    rooms = list; renderRooms();
+    if (!currentRoom && list.length && window.matchMedia("(min-width: 761px)").matches) openRoom(list[0].id);
+  });
+})();
+</script>
+</body>
+</html>
